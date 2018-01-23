@@ -4,27 +4,28 @@ public class Experiment {
     private int index = 0;
     private double distance = 0.0;
 
-    private TSPSolver solver = null;
-    private double optDist = 0.0;
     private ArrayList<Integer> indexList = null;
-    private ArrayList<Integer> optIndexList = null;
     public static int N = 0;
 
+    // 用于TSP求解计算使用
+    private TSPSolver solver = null;
+    private double optDist = 0.0;
+    private ArrayList<Integer> optIndexList = null;
     private double[][] cities;
     private double[][] graph;
 
     public Experiment() {}
 
     public Experiment(int n) {
-        this.setSize(n);
+        this.initExp(n);
     }
 
-    public void setSize(int n) {
+    public void initExp(int n) {
         indexList = new ArrayList<>();
-        for (int i=0; i<n; i++) {
-            indexList.add(i);
-        }
         indexList.add(0);
+        for (int i=0; i<n; i++) {
+            indexList.add(-1);
+        }
         this.N = n;
     }
 
@@ -61,7 +62,7 @@ public class Experiment {
         this.optDist = solver.shortest;
     }
 
-    public void setAction(ArrayList<Integer> list) {
+    public void setAllActions(ArrayList<Integer> list) {
         if ( N != list.size()-1 || list.get(0)!=0 || list.get(list.size()-1)!=0) {
             System.out.println("动作序列设置有误");
             return;
@@ -69,12 +70,19 @@ public class Experiment {
         this.indexList = list;
     }
 
+    public void setAction(int action) {
+        if (index > this.N)
+            return;
+        this.indexList.set(index, action);
+    }
+
     public int getIndex() {
         if (index < indexList.size()) {
             return indexList.get(index);
         }
         else {
-            return -1;
+            // 用-2标识回到了原点
+            return -2;
         }
     }
 
@@ -92,6 +100,10 @@ public class Experiment {
 
     public double getOptDist() {
         return this.optDist;
+    }
+
+    public ArrayList<Integer> getIndexList() {
+        return indexList;
     }
 
     public String getIndexListString() {

@@ -22,11 +22,10 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter{
     private static final AsciiString KEEP_ALIVE = new AsciiString("keep-alive");
 
     // 初始化逻辑
-    private Experiment exp = null;
-    private SimuEngine engine = null;
+    private static Experiment exp = null;
+    private static SimuEngine engine = null;
     public MainServerHandler() {
-        engine = new SimuEngine();
-        exp = new Experiment();
+
     }
 
     // 主要的服务端处理逻辑
@@ -38,19 +37,22 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter{
             JSONObject requestJson = null;
             JSONObject responseJson = new JSONObject();
             int n = 0;
-            ArrayList<Integer> action = new ArrayList<>();
+            int action = 0;
+            //ArrayList<Integer> action = new ArrayList<>();
 
             try {
                 String reqStr = parseJosnRequest(req);
                 //System.out.println(req);
                 if (!reqStr.isEmpty()) {
+                    // 解析
                     requestJson = new JSONObject(reqStr);
                     System.out.println(requestJson.toString());
                     n = (int)requestJson.get("n");
-                    JSONArray jArray = (JSONArray) requestJson.get("action");
-                    for (int i=0; i<jArray.length(); i++) {
-                        action.add(jArray.getInt(i));
-                    }
+                    action = (int)requestJson.get("action");
+                    //JSONArray jArray = (JSONArray) requestJson.get("action");
+                    //for (int i=0; i<jArray.length(); i++) {
+                    //    action.add(jArray.getInt(i));
+                    //}
                 }
             } catch(Exception e) {
                 ResponseJson(ctx, req, new String("error: "+e.toString()));
@@ -62,16 +64,19 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter{
 
             // uri路由
             if (req.uri().equals("/start")) {
-                exp.setSize(n);
+                engine = new SimuEngine();
+                exp = new Experiment();
+                exp.initExp(n);
                 engine.initialize(exp);
-                exp.setAction(action);
-                engine.run();
-                responseJson.put("City", exp.getCities());
-                responseJson.put("Reward", exp.getReward());
+                responseJson.put("city", exp.getCities());
+                responseJson.put("state", exp.getIndexList());
             }
 
             if (req.uri().equals("/run")) {
-                ;
+                int done = engine.run(action);
+                responseJson.put("state", exp.getIndexList());
+                responseJson.put("distance", exp.getDistance());
+                responseJson.put("done", done);
             }
 
             ResponseJson(ctx, req, responseJson.toString());

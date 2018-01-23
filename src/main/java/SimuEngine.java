@@ -45,13 +45,18 @@ public class SimuEngine {
         eventList.add(new SimuEvent(EventType.MOVE));
     }
 
-    public int run() {
+    public int run(int action) {
         if (this.simuTimer == null) {
             System.out.println("错误：仿真引擎未初始化");
             return -1;
         }
 
-        while (exp.getIndex() != -1) {
+        // 若action=-1，则一次全部执行
+        if (action >= 0){
+            exp.setAction(action);
+        }
+
+        while (exp.getIndex() >= 0) {
             // 仿真时间运转
             simuTimer.timing(eventList);
             // 事件处理
@@ -67,13 +72,21 @@ public class SimuEngine {
             }
         }
 
-        // 输出统计结果
-        System.out.println("Simu path:"+exp.getIndexListString());
-        System.out.println(exp.getDistance());
-        // 输出理论计算结果
-        System.out.println("Opti path:"+exp.getOptIndexListString());
-        System.out.println(exp.getOptDist());
-        return 1;
+        if (true) {
+            // 输出统计结果
+            System.out.println("Simu path:" + exp.getIndexListString());
+            System.out.println(exp.getDistance());
+            // 输出理论计算结果
+            System.out.println("Opti path:" + exp.getOptIndexListString());
+            System.out.println(exp.getOptDist());
+        }
+
+        // 判断仿真结束
+        if (exp.getIndex() == -2) {
+            return 1;
+        }
+        // 仿真中止
+        return 0;
     }
 
     // 仿真模型逻辑

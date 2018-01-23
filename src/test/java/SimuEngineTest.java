@@ -2,8 +2,6 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 
-import static org.junit.Assert.*;
-
 public class SimuEngineTest {
 
     @Test
@@ -19,8 +17,22 @@ public class SimuEngineTest {
             add(4);
             add(0);
         }};
-        exp.setAction(action);
-        engine.run();
+        exp.setAllActions(action);
+        engine.run(-1);
+        System.out.println(exp.getReward());
+    }
+
+    @Test
+    public void run2() {
+        SimuEngine engine = new SimuEngine();
+        Experiment exp = new Experiment(5);
+        engine.initialize(exp);
+        System.out.println(engine.run(1));
+        System.out.println(engine.run(3));
+        System.out.println(engine.run(2));
+        System.out.println(engine.run(4));
+        System.out.println(engine.run(0));
+        System.out.println(engine.run(2));
         System.out.println(exp.getReward());
     }
 }
