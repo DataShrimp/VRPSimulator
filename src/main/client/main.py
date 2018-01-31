@@ -5,7 +5,7 @@ from agent import Agent
 import numpy as np
 
 N = 10
-TRAIN = 1
+TRAIN = 0
 
 MAX_EPISODES = 10000
 MAX_EP_STEPS = N
@@ -16,6 +16,18 @@ LEARN_RATE = 0.01
 
 env = Env(N)
 agent = Agent(env.action_dim, env.state_dim, HIDDEN_SIZE, LEARN_RATE, output_graph=True)
+
+def approxEma(data, alpha=0.9):
+    if len(data) < 4:
+        return data[-1:].pop()*0.99
+    # approximate first four computation
+    return data[-1:].pop()*alpha + (1-alpha)*alpha*data[-2:-1].pop() + \
+           (1-alpha)**2*alpha*data[-3:-2].pop() + (1-alpha)**3*alpha*data[-4:-3].pop()
+
+# 记录reward历史，作为基准函数
+rs_history = {}
+for j in range(MAX_EP_STEPS):
+    rs_history[j] = []
 
 # train
 if TRAIN:
@@ -33,7 +45,11 @@ if TRAIN:
                     a = env.sample_action()
 
             s_, r, done = env.step(a)
-            agent.store_transition(s, a, r)
+            rs_history[j].append(r)
+            # EMA baseline function
+            b = approxEma(rs_history[j], 0.9)
+
+            agent.store_transition(s, a, r-b)
             s = s_
 
             if done:
@@ -51,9 +67,11 @@ if not TRAIN:
     s = env.reset(N)
     for i in range(N):
         a = agent.choose_action(s)
-        while a not in env.actions and a>0:
+        while a not in env.actions and a>=0:
             print("prediction failed, action: {0}".format(a))
             a = agent.choose_action(s)
+            if a==0 and i==N-1:
+                break
         if a>0:
             env.actions.remove(a)
         s, r, done = env.step(a)
