@@ -4,11 +4,16 @@ import multiprocessing
 import threading
 import matplotlib.pyplot as plt
 
-from env import Env
+#from env import Env
+# test using gym env
+import gym
+env = gym.make('CartPole-v0')
+N_STATS = env.observation_space.shape[0]
+N_ACTIONS = env.action_space.n
 
 OUTPUT_GRAPH = True
 LOG_DIR = "./log"
-N_WORKERS = 2 #multiprocessing.cpu_count()
+N_WORKERS = multiprocessing.cpu_count()
 
 GLOBAL_NET_SCOPE = "Global_Net"
 GLOBAL_RUNNING_R = []
@@ -20,9 +25,6 @@ LR_A = 0.001
 LR_C = 0.001
 UPDATE_GLOBAL_ITER = 10
 MAX_GLOBAL_EP = 1000
-
-N_STATS = 10
-N_ACTIONS = 10
 
 class ACNet:
     def __init__(self, n_actions, n_stats, scope, globalAC = None):
@@ -93,7 +95,7 @@ class ACNet:
 
 class Worker:
     def __init__(self, name, globalAC):
-        self.env = Env()
+        self.env = gym.make('CartPole-v0').unwrapped
         self.name = name
         self.AC = ACNet(N_ACTIONS, N_STATS, name, globalAC)
 
