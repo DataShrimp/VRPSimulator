@@ -3,6 +3,8 @@ import numpy as np
 import multiprocessing
 import threading
 import matplotlib.pyplot as plt
+import os
+import shutil
 
 #from env import Env
 # test using gym env
@@ -27,17 +29,17 @@ UPDATE_GLOBAL_ITER = 10
 MAX_GLOBAL_EP = 1000
 
 class ACNet:
-    def __init__(self, n_actions, n_stats, scope, globalAC = None):
+    def __init__(self, n_actions, n_stats, scope, globalAC=None):
         self.n_actions = n_actions
         self.n_states = n_stats
 
-        if scope == "Global_Net":   # global net
+        if scope == GLOBAL_NET_SCOPE:   # global net
             with tf.variable_scope(scope):
-                self.s = tf.placeholder(tf.float32, [None, n_stats], name="stats")
+                self.s = tf.placeholder(tf.float32, [None, self.n_states], name="stats")
                 self.a_params, self.c_params = self._build_net(scope)[-2:]
         else:   # local net
             with tf.variable_scope(scope):
-                self.s = tf.placeholder(tf.float32, [None, n_stats], name="stats")
+                self.s = tf.placeholder(tf.float32, [None, self.n_states], name="stats")
                 self.a = tf.placeholder(tf.int32, [None, ], name="actions")
                 self.v_target = tf.placeholder(tf.float32, [None, 1], name="Vtarget")
                 self.a_prob, self.v, self.a_params, self.c_params = self._build_net(scope)
@@ -47,7 +49,7 @@ class ACNet:
                     self.c_loss = tf.reduce_mean(tf.square(td))
 
                 with tf.name_scope("a_loss"):
-                    log_prob = tf.reduce_sum(tf.log(self.a_prob)*tf.one_hot(self.a, n_actions, dtype=tf.float32),
+                    log_prob = tf.reduce_sum(tf.log(self.a_prob)*tf.one_hot(self.a, self.n_actions, dtype=tf.float32),
                                              axis=1, keep_dims=True)
                     exp_v = log_prob * tf.stop_gradient(td) # stop bp
                     entropy = -tf.reduce_sum(self.a_prob * tf.log(self.a_prob+1e-5),
@@ -74,7 +76,7 @@ class ACNet:
         with tf.variable_scope('actor'):
             # relu6 will encourage to learn sparse features earlier
             l_a = tf.layers.dense(self.s, 200, tf.nn.relu6, kernel_initializer=w_init, name='l_a')
-            a_prob = tf.layers.dense(l_a, self.n_actions, tf.nn.relu6, kernel_initializer=w_init, name='a_prob')
+            a_prob = tf.layers.dense(l_a, self.n_actions, tf.nn.softmax, kernel_initializer=w_init, name='a_prob')
         with tf.variable_scope('critic'):
             l_c = tf.layers.dense(self.s, 100, tf.nn.relu6, kernel_initializer=w_init, name='l_c')
             v = tf.layers.dense(l_c, 1, kernel_initializer=w_init, name="v")
@@ -93,6 +95,14 @@ class ACNet:
         action = np.random.choice(range(weight_probs.shape[1]), p=weight_probs.ravel())
         return action
 
+    def save(self):
+        saver = tf.train.Saver()
+        saver.save(SESS, "./a3c", write_meta_graph=False)
+
+    def load(self):
+        saver = tf.train.Saver()
+        saver.restore(SESS, "./a3c")
+
 class Worker:
     def __init__(self, name, globalAC):
         self.env = gym.make('CartPole-v0').unwrapped
@@ -108,15 +118,18 @@ class Worker:
             ep_r = 0
             while True:
                 a = self.AC.choose_action(s)
-                s_, r, done = self.env.step(a)
+                s_, r, done,info = self.env.step(a)
                 ep_r += r
                 buffer_s.append(s)
                 buffer_a.append(a)
                 buffer_r.append(r)
 
                 # update global and assign to local net
-                if total_step % UPDATE_GLOBAL_ITER == 0:
-                    v_s_ = SESS.run(self.AC.v, {self.AC.s: s_[np.newaxis,:]})[0,0]
+                if total_step % UPDATE_GLOBAL_ITER == 0 or done:
+                    if done:
+                        v_s_ = 0
+                    else:
+                        v_s_ = SESS.run(self.AC.v, {self.AC.s: s_[np.newaxis,:]})[0,0]
                     buffer_v_target = []
                     for r in buffer_r[::-1]:
                         # combine critic's value
@@ -162,6 +175,8 @@ if __name__ == "__main__":
     SESS.run(tf.global_variables_initializer())
 
     if OUTPUT_GRAPH:
+        if os.path.exists(LOG_DIR):
+            shutil.rmtree(LOG_DIR)
         tf.summary.FileWriter(LOG_DIR, SESS.graph)
 
     worker_threads = []
@@ -172,8 +187,28 @@ if __name__ == "__main__":
         worker_threads.append(t)
     COORD.join(worker_threads)
 
+    # save the model
+    GLOBAL_AC.save()
+    print("Saved the model")
+
     # visualize
     plt.plot(np.arange(len(GLOBAL_RUNNING_R)), GLOBAL_RUNNING_R)
     plt.xlabel("step")
     plt.ylabel("Total moving reward")
     plt.show()
+
+    # predict
+    AC = ACNet(N_ACTIONS, N_STATS, "local", GLOBAL_AC)
+    AC.pull_global()
+    env = gym.make('CartPole-v0').unwrapped
+    s = env.reset()
+    i = 0
+    while True:
+        env.render()
+        a = AC.choose_action(s)
+        s_, r, done, info = env.step(a)
+        if done:
+            break
+        s = s_
+        i = i+1
+    print("steps: %d"%i)
