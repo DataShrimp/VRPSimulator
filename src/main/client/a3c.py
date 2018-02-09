@@ -26,7 +26,7 @@ ENTROPY_BETA = 0.001
 LR_A = 0.001
 LR_C = 0.001
 UPDATE_GLOBAL_ITER = 10
-MAX_GLOBAL_EP = 1000
+MAX_GLOBAL_EP = 10000
 
 class ACNet:
     def __init__(self, n_actions, n_stats, scope, globalAC=None):

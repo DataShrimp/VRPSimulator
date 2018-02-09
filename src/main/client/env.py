@@ -27,7 +27,8 @@ class Env:
         s = np.reshape(self.city, self.action_dim*3).tolist()
         r = ret['distance']
         done = True if ret['done']==1 else False
-        return s,r,done
+        info = ""
+        return s,r,done,info
 
     def reset(self, n):
         self.__init__(n)
